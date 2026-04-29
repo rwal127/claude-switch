@@ -1,0 +1,525 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROGRAM_NAME="${0##*/}"
+
+ALIBABA_BASE_URL_DEFAULT="https://coding.dashscope.aliyuncs.com/apps/anthropic"
+ALIBABA_MODEL_DEFAULT="qwen3.5-plus"
+DEEPSEEK_BASE_URL_DEFAULT="https://api.deepseek.com/anthropic"
+DEEPSEEK_MODEL_DEFAULT="deepseek-v4-pro"
+DEEPSEEK_HAIKU_MODEL_DEFAULT="deepseek-v4-flash"
+
+default_switch_home() {
+  local legacy_home xdg_home
+
+  legacy_home="${HOME}/.claude-switch"
+  xdg_home="${XDG_CONFIG_HOME:-${HOME}/.config}/claude-switch"
+
+  if [[ -d "$legacy_home" && ! -d "$xdg_home" ]]; then
+    printf '%s\n' "$legacy_home"
+    return
+  fi
+
+  printf '%s\n' "$xdg_home"
+}
+
+SWITCH_HOME="${CLAUDE_SWITCH_HOME:-$(default_switch_home)}"
+PROFILES_DIR="${CLAUDE_SWITCH_PROFILES_DIR:-$SWITCH_HOME/profiles}"
+CURRENT_PROFILE_FILE="${CLAUDE_SWITCH_CURRENT_PROFILE_FILE:-$SWITCH_HOME/current-profile}"
+SETTINGS_FILE="${CLAUDE_SWITCH_SETTINGS_FILE:-$HOME/.claude/settings.json}"
+CLAUDE_JSON_FILE="${CLAUDE_SWITCH_CLAUDE_JSON_FILE:-$HOME/.claude.json}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  claude-switch use <profile>
+  claude-switch save <profile>
+  claude-switch direct
+  claude-switch list
+  claude-switch status
+  claude-switch paths
+  claude-switch proxy|alibaba|deepseek
+  claude-switch help
+
+Commands:
+  use <profile>   Apply a named profile from the local profiles directory
+  save <profile>  Capture the current Claude env config into a local profile
+  direct          Remove Anthropic override variables from Claude settings
+  list            List available local profiles
+  status          Show current mode and key env settings
+  paths           Show settings and profile locations
+  proxy           Alias for: use proxy
+  alibaba         Alias for: use alibaba
+  deepseek        Alias for: use deepseek
+  help            Show this help
+
+Profiles:
+  - Stored outside this repo in:
+      ${XDG_CONFIG_HOME:-~/.config}/claude-switch/profiles
+  - Legacy ~/.claude-switch is supported automatically when present
+  - Files are plain JSON with Claude env keys such as:
+      ANTHROPIC_BASE_URL
+      ANTHROPIC_AUTH_TOKEN
+      ANTHROPIC_MODEL
+      ANTHROPIC_DEFAULT_OPUS_MODEL
+      ANTHROPIC_DEFAULT_SONNET_MODEL
+      ANTHROPIC_DEFAULT_HAIKU_MODEL
+
+Preset env fallbacks:
+  proxy     CLAUDE_SWITCH_PROXY_*
+  alibaba   CLAUDE_SWITCH_ALIBABA_* or ALIBABA_MODEL_STUDIO_API_KEY
+  deepseek  CLAUDE_SWITCH_DEEPSEEK_* or DEEPSEEK_API_KEY
+USAGE
+}
+
+fail() {
+  echo "Error: $*" >&2
+  exit 1
+}
+
+require_jq() {
+  if ! command -v jq >/dev/null 2>&1; then
+    fail "jq is required but not installed."
+  fi
+}
+
+ensure_dir() {
+  mkdir -p "$1"
+}
+
+ensure_json_file() {
+  local path="$1"
+
+  ensure_dir "$(dirname "$path")"
+
+  if [[ ! -f "$path" ]]; then
+    printf '{}\n' > "$path"
+  fi
+
+  if ! jq -e . "$path" >/dev/null 2>&1; then
+    fail "$path is not valid JSON."
+  fi
+}
+
+atomic_jq_update_file() {
+  local path="$1"
+  shift
+
+  ensure_json_file "$path"
+
+  local tmp
+  tmp="$(mktemp "${path}.XXXXXX")"
+  jq "$@" "$path" > "$tmp"
+  mv "$tmp" "$path"
+}
+
+validate_profile_name() {
+  local profile_name="$1"
+
+  if [[ ! "$profile_name" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    fail "invalid profile name: $profile_name"
+  fi
+}
+
+profile_path() {
+  local profile_name="$1"
+  validate_profile_name "$profile_name"
+  printf '%s/%s.json\n' "$PROFILES_DIR" "$profile_name"
+}
+
+normalized_profile_filter() {
+  cat <<'FILTER'
+{
+  ANTHROPIC_BASE_URL: (.ANTHROPIC_BASE_URL // ""),
+  ANTHROPIC_AUTH_TOKEN: (.ANTHROPIC_AUTH_TOKEN // ""),
+  ANTHROPIC_MODEL: (.ANTHROPIC_MODEL // ""),
+  ANTHROPIC_DEFAULT_OPUS_MODEL: (.ANTHROPIC_DEFAULT_OPUS_MODEL // ""),
+  ANTHROPIC_DEFAULT_SONNET_MODEL: (.ANTHROPIC_DEFAULT_SONNET_MODEL // ""),
+  ANTHROPIC_DEFAULT_HAIKU_MODEL: (.ANTHROPIC_DEFAULT_HAIKU_MODEL // "")
+}
+| with_entries(select((.value | type) == "string" and (.value | length) > 0))
+FILTER
+}
+
+current_profile_json() {
+  jq -c "(.env // {}) | $(normalized_profile_filter)" "$SETTINGS_FILE"
+}
+
+profile_file_json() {
+  local path="$1"
+
+  ensure_json_file "$path"
+  jq -c "$(normalized_profile_filter)" "$path"
+}
+
+profile_json_from_values() {
+  local base_url="$1"
+  local auth_token="$2"
+  local model="$3"
+  local opus_model="$4"
+  local sonnet_model="$5"
+  local haiku_model="$6"
+
+  jq -cn \
+    --arg base_url "$base_url" \
+    --arg auth_token "$auth_token" \
+    --arg model "$model" \
+    --arg opus_model "$opus_model" \
+    --arg sonnet_model "$sonnet_model" \
+    --arg haiku_model "$haiku_model" \
+    "{
+      ANTHROPIC_BASE_URL: \$base_url,
+      ANTHROPIC_AUTH_TOKEN: \$auth_token,
+      ANTHROPIC_MODEL: \$model,
+      ANTHROPIC_DEFAULT_OPUS_MODEL: \$opus_model,
+      ANTHROPIC_DEFAULT_SONNET_MODEL: \$sonnet_model,
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: \$haiku_model
+    } | $(normalized_profile_filter)"
+}
+
+save_profile_json() {
+  local profile_name="$1"
+  local profile_json="$2"
+  local path
+
+  path="$(profile_path "$profile_name")"
+  ensure_dir "$PROFILES_DIR"
+  printf '%s\n' "$profile_json" > "$path"
+}
+
+resolve_preset_profile_json() {
+  local profile_name="$1"
+  local base_url auth_token model opus_model sonnet_model haiku_model
+
+  case "$profile_name" in
+    proxy)
+      base_url="${CLAUDE_SWITCH_PROXY_BASE_URL:-}"
+      auth_token="${CLAUDE_SWITCH_PROXY_AUTH_TOKEN:-}"
+      model="${CLAUDE_SWITCH_PROXY_MODEL:-}"
+      opus_model="${CLAUDE_SWITCH_PROXY_OPUS_MODEL:-}"
+      sonnet_model="${CLAUDE_SWITCH_PROXY_SONNET_MODEL:-}"
+      haiku_model="${CLAUDE_SWITCH_PROXY_HAIKU_MODEL:-}"
+
+      if [[ -z "$base_url" || -z "$auth_token" ]]; then
+        return 1
+      fi
+      ;;
+    alibaba)
+      base_url="${CLAUDE_SWITCH_ALIBABA_BASE_URL:-$ALIBABA_BASE_URL_DEFAULT}"
+      auth_token="${CLAUDE_SWITCH_ALIBABA_AUTH_TOKEN:-${ALIBABA_MODEL_STUDIO_API_KEY:-}}"
+      model="${CLAUDE_SWITCH_ALIBABA_MODEL:-$ALIBABA_MODEL_DEFAULT}"
+      opus_model=""
+      sonnet_model=""
+      haiku_model=""
+
+      if [[ -z "$auth_token" ]]; then
+        return 1
+      fi
+      ;;
+    deepseek)
+      base_url="${CLAUDE_SWITCH_DEEPSEEK_BASE_URL:-$DEEPSEEK_BASE_URL_DEFAULT}"
+      auth_token="${CLAUDE_SWITCH_DEEPSEEK_AUTH_TOKEN:-${DEEPSEEK_API_KEY:-}}"
+      model="${CLAUDE_SWITCH_DEEPSEEK_MODEL:-$DEEPSEEK_MODEL_DEFAULT}"
+      opus_model="${CLAUDE_SWITCH_DEEPSEEK_OPUS_MODEL:-$model}"
+      sonnet_model="${CLAUDE_SWITCH_DEEPSEEK_SONNET_MODEL:-$model}"
+      haiku_model="${CLAUDE_SWITCH_DEEPSEEK_HAIKU_MODEL:-$DEEPSEEK_HAIKU_MODEL_DEFAULT}"
+
+      if [[ -z "$auth_token" ]]; then
+        return 1
+      fi
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  profile_json_from_values \
+    "$base_url" \
+    "$auth_token" \
+    "${model:-}" \
+    "${opus_model:-}" \
+    "${sonnet_model:-}" \
+    "${haiku_model:-}"
+}
+
+resolve_profile_json() {
+  local profile_name="$1"
+  local path
+
+  path="$(profile_path "$profile_name")"
+
+  if [[ -f "$path" ]]; then
+    profile_file_json "$path"
+    return
+  fi
+
+  if resolve_preset_profile_json "$profile_name"; then
+    return
+  fi
+
+  fail "profile not found: $profile_name"
+}
+
+ensure_settings_file() {
+  ensure_json_file "$SETTINGS_FILE"
+}
+
+ensure_claude_onboarding_flag() {
+  atomic_jq_update_file "$CLAUDE_JSON_FILE" '.hasCompletedOnboarding = true'
+}
+
+apply_profile_json() {
+  local profile_json="$1"
+  local profile_name="$2"
+  local base_url auth_token
+
+  base_url="$(jq -r '.ANTHROPIC_BASE_URL // ""' <<<"$profile_json")"
+  auth_token="$(jq -r '.ANTHROPIC_AUTH_TOKEN // ""' <<<"$profile_json")"
+
+  if [[ -z "$base_url" || -z "$auth_token" ]]; then
+    fail "profile $profile_name must include ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN"
+  fi
+
+  atomic_jq_update_file \
+    "$SETTINGS_FILE" \
+    --argjson profile "$profile_json" \
+    '
+      .env = (.env // {})
+      | .env |= del(
+          .ANTHROPIC_BASE_URL,
+          .ANTHROPIC_AUTH_TOKEN,
+          .ANTHROPIC_MODEL,
+          .ANTHROPIC_DEFAULT_OPUS_MODEL,
+          .ANTHROPIC_DEFAULT_SONNET_MODEL,
+          .ANTHROPIC_DEFAULT_HAIKU_MODEL
+        )
+      | .env += $profile
+    '
+
+  ensure_claude_onboarding_flag
+  save_profile_json "$profile_name" "$profile_json"
+  ensure_dir "$(dirname "$CURRENT_PROFILE_FILE")"
+  printf '%s\n' "$profile_name" > "$CURRENT_PROFILE_FILE"
+}
+
+switch_to_profile() {
+  local profile_name="$1"
+  local profile_json
+
+  profile_json="$(resolve_profile_json "$profile_name")"
+  apply_profile_json "$profile_json" "$profile_name"
+
+  echo "Switched to: $profile_name"
+}
+
+switch_to_direct() {
+  atomic_jq_update_file \
+    "$SETTINGS_FILE" \
+    '
+      .env = (.env // {})
+      | .env |= del(
+          .ANTHROPIC_BASE_URL,
+          .ANTHROPIC_AUTH_TOKEN,
+          .ANTHROPIC_MODEL,
+          .ANTHROPIC_DEFAULT_OPUS_MODEL,
+          .ANTHROPIC_DEFAULT_SONNET_MODEL,
+          .ANTHROPIC_DEFAULT_HAIKU_MODEL
+        )
+    '
+
+  rm -f "$CURRENT_PROFILE_FILE"
+  echo "Switched to: direct"
+}
+
+save_current_to_profile() {
+  local profile_name="$1"
+  local profile_json
+
+  profile_json="$(current_profile_json)"
+
+  if [[ "$profile_json" == "{}" ]]; then
+    fail "current Claude settings do not contain an override profile to save"
+  fi
+
+  save_profile_json "$profile_name" "$profile_json"
+  echo "Saved current settings to profile: $profile_name"
+}
+
+matching_profile_name() {
+  local current_json="$1"
+  local path profile_name
+  local -a profile_files
+
+  if [[ "$current_json" == "{}" || ! -d "$PROFILES_DIR" ]]; then
+    return 1
+  fi
+
+  shopt -s nullglob
+  profile_files=("$PROFILES_DIR"/*.json)
+  shopt -u nullglob
+
+  for path in "${profile_files[@]}"; do
+    if [[ "$(profile_file_json "$path")" == "$current_json" ]]; then
+      profile_name="${path##*/}"
+      printf '%s\n' "${profile_name%.json}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+current_mode() {
+  local current_json profile_name
+
+  current_json="$(current_profile_json)"
+
+  if [[ "$current_json" == "{}" ]]; then
+    printf 'direct\n'
+    return
+  fi
+
+  if profile_name="$(matching_profile_name "$current_json")"; then
+    printf '%s\n' "$profile_name"
+    return
+  fi
+
+  printf 'custom\n'
+}
+
+print_status() {
+  local mode profile_match base_url token_set model opus_model sonnet_model haiku_model
+
+  mode="$(current_mode)"
+  profile_match=""
+
+  if [[ "$mode" != "direct" && "$mode" != "custom" ]]; then
+    profile_match="$mode"
+  fi
+
+  base_url="$(jq -r '.env.ANTHROPIC_BASE_URL // ""' "$SETTINGS_FILE")"
+  model="$(jq -r '.env.ANTHROPIC_MODEL // ""' "$SETTINGS_FILE")"
+  opus_model="$(jq -r '.env.ANTHROPIC_DEFAULT_OPUS_MODEL // ""' "$SETTINGS_FILE")"
+  sonnet_model="$(jq -r '.env.ANTHROPIC_DEFAULT_SONNET_MODEL // ""' "$SETTINGS_FILE")"
+  haiku_model="$(jq -r '.env.ANTHROPIC_DEFAULT_HAIKU_MODEL // ""' "$SETTINGS_FILE")"
+  token_set="$(jq -r 'if ((.env.ANTHROPIC_AUTH_TOKEN // "") | length) > 0 then "yes" else "no" end' "$SETTINGS_FILE")"
+
+  echo "Current mode: $mode"
+  if [[ -n "$profile_match" ]]; then
+    echo "Profile match: $profile_match"
+  fi
+  if [[ -n "$base_url" ]]; then
+    echo "ANTHROPIC_BASE_URL: $base_url"
+  else
+    echo "ANTHROPIC_BASE_URL: (not set)"
+  fi
+  echo "ANTHROPIC_AUTH_TOKEN set: $token_set"
+  if [[ -n "$model" ]]; then
+    echo "ANTHROPIC_MODEL: $model"
+  else
+    echo "ANTHROPIC_MODEL: (not set)"
+  fi
+  if [[ -n "$opus_model" ]]; then
+    echo "ANTHROPIC_DEFAULT_OPUS_MODEL: $opus_model"
+  else
+    echo "ANTHROPIC_DEFAULT_OPUS_MODEL: (not set)"
+  fi
+  if [[ -n "$sonnet_model" ]]; then
+    echo "ANTHROPIC_DEFAULT_SONNET_MODEL: $sonnet_model"
+  else
+    echo "ANTHROPIC_DEFAULT_SONNET_MODEL: (not set)"
+  fi
+  if [[ -n "$haiku_model" ]]; then
+    echo "ANTHROPIC_DEFAULT_HAIKU_MODEL: $haiku_model"
+  else
+    echo "ANTHROPIC_DEFAULT_HAIKU_MODEL: (not set)"
+  fi
+}
+
+print_paths() {
+  echo "Settings file: $SETTINGS_FILE"
+  echo "Claude JSON file: $CLAUDE_JSON_FILE"
+  echo "Switch home: $SWITCH_HOME"
+  echo "Profiles dir: $PROFILES_DIR"
+}
+
+list_profiles() {
+  local current current_marker path profile_name found_any
+
+  ensure_dir "$PROFILES_DIR"
+  current=""
+  found_any=0
+
+  if current="$(matching_profile_name "$(current_profile_json)")"; then
+    :
+  else
+    current=""
+  fi
+
+  shopt -s nullglob
+  for path in "$PROFILES_DIR"/*.json; do
+    found_any=1
+    profile_name="${path##*/}"
+    profile_name="${profile_name%.json}"
+    current_marker=" "
+    if [[ "$profile_name" == "$current" ]]; then
+      current_marker="*"
+    fi
+    printf '%s %s\n' "$current_marker" "$profile_name"
+  done
+  shopt -u nullglob
+
+  if [[ "$found_any" -eq 0 ]]; then
+    echo "No profiles found."
+  fi
+}
+
+main() {
+  local cmd profile_name
+
+  require_jq
+  ensure_settings_file
+
+  cmd="${1:-help}"
+
+  case "$cmd" in
+    use)
+      profile_name="${2:-}"
+      [[ -n "$profile_name" ]] || fail "missing profile name for use"
+      switch_to_profile "$profile_name"
+      print_status
+      ;;
+    save)
+      profile_name="${2:-}"
+      [[ -n "$profile_name" ]] || fail "missing profile name for save"
+      save_current_to_profile "$profile_name"
+      ;;
+    direct)
+      switch_to_direct
+      print_status
+      ;;
+    list)
+      list_profiles
+      ;;
+    status)
+      print_status
+      ;;
+    paths)
+      print_paths
+      ;;
+    proxy|alibaba|deepseek)
+      switch_to_profile "$cmd"
+      print_status
+      ;;
+    help|-h|--help)
+      usage
+      echo
+      print_status
+      ;;
+    *)
+      fail "unknown command: $cmd"
+      ;;
+  esac
+}
+
+main "$@"

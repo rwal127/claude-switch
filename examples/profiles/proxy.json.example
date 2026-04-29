@@ -1,0 +1,8 @@
+{
+  "ANTHROPIC_BASE_URL": "https://your-proxy.example/anthropic",
+  "ANTHROPIC_AUTH_TOKEN": "replace-with-your-token",
+  "ANTHROPIC_MODEL": "provider-model-name",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL": "provider-opus-model",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL": "provider-sonnet-model",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL": "provider-haiku-model"
+}
