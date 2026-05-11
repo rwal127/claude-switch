@@ -40,6 +40,8 @@ cp ~/.config/claude-switch/profiles/proxy.json.example ~/.config/claude-switch/p
 
 Then edit the copied `.json` file and put in your own values.
 
+For the built-in `deepseek` preset, the default Claude-facing model alias is `deepseek-v4-pro[1m]` so Claude Code requests the 1M-context variant described in DeepSeek's Claude Code integration docs.
+
 Profile JSON format:
 
 ```json

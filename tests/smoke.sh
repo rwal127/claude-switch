@@ -59,6 +59,9 @@ bash "$SCRIPT_PATH" deepseek >/dev/null
 jq -e '
   .env.ANTHROPIC_BASE_URL == "https://api.deepseek.com/anthropic" and
   .env.ANTHROPIC_AUTH_TOKEN == "deepseek-token" and
+  .env.ANTHROPIC_MODEL == "deepseek-v4-pro[1m]" and
+  .env.ANTHROPIC_DEFAULT_OPUS_MODEL == "deepseek-v4-pro[1m]" and
+  .env.ANTHROPIC_DEFAULT_SONNET_MODEL == "deepseek-v4-pro[1m]" and
   .env.ANTHROPIC_DEFAULT_HAIKU_MODEL == "deepseek-v4-flash"
 ' "$CLAUDE_SWITCH_SETTINGS_FILE" >/dev/null
 
