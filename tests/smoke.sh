@@ -53,6 +53,35 @@ jq -e '
   (.env.ANTHROPIC_MODEL // "") == ""
 ' "$CLAUDE_SWITCH_SETTINGS_FILE" >/dev/null
 
+rm -f "$CLAUDE_SWITCH_PROFILES_DIR/proxy.json"
+
+cat <<'EOF' > "$CLAUDE_SWITCH_HOME/proxy-profile.json"
+{
+  "ANTHROPIC_BASE_URL": "https://legacy-proxy.example/anthropic",
+  "ANTHROPIC_AUTH_TOKEN": "legacy-proxy-token",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL": "legacy-opus",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL": "legacy-sonnet",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL": "legacy-haiku"
+}
+EOF
+
+bash "$SCRIPT_PATH" proxy >/dev/null
+
+jq -e '
+  .env.ANTHROPIC_BASE_URL == "https://legacy-proxy.example/anthropic" and
+  .env.ANTHROPIC_AUTH_TOKEN == "legacy-proxy-token" and
+  .env.ANTHROPIC_DEFAULT_OPUS_MODEL == "legacy-opus" and
+  .env.ANTHROPIC_DEFAULT_SONNET_MODEL == "legacy-sonnet" and
+  .env.ANTHROPIC_DEFAULT_HAIKU_MODEL == "legacy-haiku"
+' "$CLAUDE_SWITCH_SETTINGS_FILE" >/dev/null
+
+jq -e '
+  .ANTHROPIC_BASE_URL == "https://legacy-proxy.example/anthropic" and
+  .ANTHROPIC_AUTH_TOKEN == "legacy-proxy-token"
+' "$CLAUDE_SWITCH_PROFILES_DIR/proxy.json" >/dev/null
+
+bash "$SCRIPT_PATH" direct >/dev/null
+
 export DEEPSEEK_API_KEY="deepseek-token"
 bash "$SCRIPT_PATH" deepseek >/dev/null
 
@@ -66,5 +95,22 @@ jq -e '
 ' "$CLAUDE_SWITCH_SETTINGS_FILE" >/dev/null
 
 [[ -f "$CLAUDE_SWITCH_PROFILES_DIR/deepseek.json" ]]
+
+unset DEEPSEEK_API_KEY
+bash "$SCRIPT_PATH" direct >/dev/null
+
+export MINIMAX_API_KEY="minimax-token"
+bash "$SCRIPT_PATH" minimax >/dev/null
+
+jq -e '
+  .env.ANTHROPIC_BASE_URL == "https://api.minimax.io/anthropic" and
+  .env.ANTHROPIC_AUTH_TOKEN == "minimax-token" and
+  .env.ANTHROPIC_MODEL == "MiniMax-M3" and
+  .env.ANTHROPIC_DEFAULT_OPUS_MODEL == "MiniMax-M3" and
+  .env.ANTHROPIC_DEFAULT_SONNET_MODEL == "MiniMax-M3" and
+  .env.ANTHROPIC_DEFAULT_HAIKU_MODEL == "MiniMax-M3"
+' "$CLAUDE_SWITCH_SETTINGS_FILE" >/dev/null
+
+[[ -f "$CLAUDE_SWITCH_PROFILES_DIR/minimax.json" ]]
 
 echo "Smoke test passed."

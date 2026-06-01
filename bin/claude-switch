@@ -8,6 +8,8 @@ ALIBABA_MODEL_DEFAULT="qwen3.5-plus"
 DEEPSEEK_BASE_URL_DEFAULT="https://api.deepseek.com/anthropic"
 DEEPSEEK_MODEL_DEFAULT="deepseek-v4-pro[1m]"
 DEEPSEEK_HAIKU_MODEL_DEFAULT="deepseek-v4-flash"
+MINIMAX_BASE_URL_DEFAULT="https://api.minimax.io/anthropic"
+MINIMAX_MODEL_DEFAULT="MiniMax-M3"
 
 default_switch_home() {
   local legacy_home xdg_home
@@ -38,7 +40,7 @@ Usage:
   claude-switch list
   claude-switch status
   claude-switch paths
-  claude-switch proxy|alibaba|deepseek
+  claude-switch proxy|alibaba|deepseek|minimax
   claude-switch help
 
 Commands:
@@ -51,6 +53,7 @@ Commands:
   proxy           Alias for: use proxy
   alibaba         Alias for: use alibaba
   deepseek        Alias for: use deepseek
+  minimax         Alias for: use minimax
   help            Show this help
 
 Profiles:
@@ -69,6 +72,7 @@ Preset env fallbacks:
   proxy     CLAUDE_SWITCH_PROXY_*
   alibaba   CLAUDE_SWITCH_ALIBABA_* or ALIBABA_MODEL_STUDIO_API_KEY
   deepseek  CLAUDE_SWITCH_DEEPSEEK_* or DEEPSEEK_API_KEY
+  minimax   CLAUDE_SWITCH_MINIMAX_* or MINIMAX_API_KEY
 USAGE
 }
 
@@ -125,6 +129,12 @@ profile_path() {
   local profile_name="$1"
   validate_profile_name "$profile_name"
   printf '%s/%s.json\n' "$PROFILES_DIR" "$profile_name"
+}
+
+legacy_profile_path() {
+  local profile_name="$1"
+  validate_profile_name "$profile_name"
+  printf '%s/%s-profile.json\n' "$SWITCH_HOME" "$profile_name"
 }
 
 normalized_profile_filter() {
@@ -228,6 +238,18 @@ resolve_preset_profile_json() {
         return 1
       fi
       ;;
+    minimax)
+      base_url="${CLAUDE_SWITCH_MINIMAX_BASE_URL:-$MINIMAX_BASE_URL_DEFAULT}"
+      auth_token="${CLAUDE_SWITCH_MINIMAX_AUTH_TOKEN:-${MINIMAX_API_KEY:-}}"
+      model="${CLAUDE_SWITCH_MINIMAX_MODEL:-$MINIMAX_MODEL_DEFAULT}"
+      opus_model="${CLAUDE_SWITCH_MINIMAX_OPUS_MODEL:-$model}"
+      sonnet_model="${CLAUDE_SWITCH_MINIMAX_SONNET_MODEL:-$model}"
+      haiku_model="${CLAUDE_SWITCH_MINIMAX_HAIKU_MODEL:-$model}"
+
+      if [[ -z "$auth_token" ]]; then
+        return 1
+      fi
+      ;;
     *)
       return 1
       ;;
@@ -244,12 +266,18 @@ resolve_preset_profile_json() {
 
 resolve_profile_json() {
   local profile_name="$1"
-  local path
+  local path legacy_path
 
   path="$(profile_path "$profile_name")"
+  legacy_path="$(legacy_profile_path "$profile_name")"
 
   if [[ -f "$path" ]]; then
     profile_file_json "$path"
+    return
+  fi
+
+  if [[ -f "$legacy_path" ]]; then
+    profile_file_json "$legacy_path"
     return
   fi
 
@@ -507,7 +535,7 @@ main() {
     paths)
       print_paths
       ;;
-    proxy|alibaba|deepseek)
+    proxy|alibaba|deepseek|minimax)
       switch_to_profile "$cmd"
       print_status
       ;;

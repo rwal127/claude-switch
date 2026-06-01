@@ -1,6 +1,6 @@
 # claude-switch
 
-Claude Code profile switcher for Anthropic API providers Z.ai Alibaba Deepseek
+Claude Code profile switcher for Anthropic API providers Z.ai Alibaba DeepSeek and MiniMax
 
 It switches Claude Code between named provider profiles by editing your local Claude config at `~/.claude/settings.json`. The repo contains only reusable code and placeholder examples. Real tokens live only in your local profile files outside the repo.
 
@@ -9,7 +9,7 @@ It switches Claude Code between named provider profiles by editing your local Cl
 - Applies a named profile to Claude settings
 - Saves the current Claude override config into a named profile
 - Switches back to direct mode by removing Anthropic override variables
-- Supports generic named profiles plus shortcuts for `proxy`, `alibaba`, and `deepseek`
+- Supports generic named profiles plus shortcuts for `proxy`, `alibaba`, `deepseek`, and `minimax`
 - Works on macOS and Linux with `bash` and `jq`
 
 ## Install
@@ -21,6 +21,7 @@ It switches Claude Code between named provider profiles by editing your local Cl
 That creates a symlink at `~/.local/bin/claude-switch` by default and creates a local profiles directory at `${XDG_CONFIG_HOME:-$HOME/.config}/claude-switch/profiles`.
 
 If you already use the legacy `~/.claude-switch` directory, the script will keep using it automatically unless you override the path.
+Legacy flat files like `~/.claude-switch/proxy-profile.json` are still read and will be migrated into `~/.claude-switch/profiles/*.json` on first use.
 
 Run `claude-switch paths` to see the exact locations on a given machine.
 
@@ -31,6 +32,7 @@ Example templates are copied to your local profiles directory on install:
 - `proxy.json.example`
 - `alibaba.json.example`
 - `deepseek.json.example`
+- `minimax.json.example`
 
 Create real profiles locally:
 
@@ -41,6 +43,8 @@ cp ~/.config/claude-switch/profiles/proxy.json.example ~/.config/claude-switch/p
 Then edit the copied `.json` file and put in your own values.
 
 For the built-in `deepseek` preset, the default Claude-facing model alias is `deepseek-v4-pro[1m]` so Claude Code requests the 1M-context variant described in DeepSeek's Claude Code integration docs.
+
+For the built-in `minimax` preset, the default base URL is `https://api.minimax.io/anthropic` and all Claude-facing model selectors are set to `MiniMax-M3`, matching MiniMax's current Claude Code setup guide.
 
 Profile JSON format:
 
@@ -65,6 +69,7 @@ claude-switch use my-work-proxy
 claude-switch proxy
 claude-switch alibaba
 claude-switch deepseek
+claude-switch minimax
 claude-switch direct
 claude-switch save my-current-config
 claude-switch list
@@ -96,12 +101,21 @@ If a local profile file does not exist yet, these shortcuts can resolve values f
   - `CLAUDE_SWITCH_DEEPSEEK_SONNET_MODEL`
   - `CLAUDE_SWITCH_DEEPSEEK_HAIKU_MODEL`
   - `DEEPSEEK_API_KEY`
+- `minimax`
+  - `CLAUDE_SWITCH_MINIMAX_BASE_URL`
+  - `CLAUDE_SWITCH_MINIMAX_AUTH_TOKEN`
+  - `CLAUDE_SWITCH_MINIMAX_MODEL`
+  - `CLAUDE_SWITCH_MINIMAX_OPUS_MODEL`
+  - `CLAUDE_SWITCH_MINIMAX_SONNET_MODEL`
+  - `CLAUDE_SWITCH_MINIMAX_HAIKU_MODEL`
+  - `MINIMAX_API_KEY`
 
 ## Notes
 
 - Dependencies: `bash`, `jq`
 - Default Claude settings file: `~/.claude/settings.json`
 - Default Claude onboarding file: `~/.claude.json`
+- MiniMax's Claude Code guide also recommends `API_TIMEOUT_MS=3000000` and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`
 - Override locations with:
   - `CLAUDE_SWITCH_HOME`
   - `CLAUDE_SWITCH_PROFILES_DIR`
