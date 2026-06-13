@@ -44,6 +44,8 @@ Then edit the copied `.json` file and put in your own values.
 
 For the built-in `deepseek` preset, the default Claude-facing model alias is `deepseek-v4-pro[1m]` so Claude Code requests the 1M-context variant described in DeepSeek's Claude Code integration docs.
 
+For GLM 5.2 on the Z.ai proxy, use the same pattern: set the Claude-facing model aliases to `glm-5.2[1m]` in your local `proxy.json` profile if you want the 1M-context window.
+
 For the built-in `minimax` preset, the default base URL is `https://api.minimax.io/anthropic` and all Claude-facing model selectors are set to `MiniMax-M3`, matching MiniMax's current Claude Code setup guide.
 
 Profile JSON format:
