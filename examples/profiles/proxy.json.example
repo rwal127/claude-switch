@@ -4,5 +4,7 @@
   "ANTHROPIC_MODEL": "provider-model-name[1m]",
   "ANTHROPIC_DEFAULT_OPUS_MODEL": "provider-opus-model[1m]",
   "ANTHROPIC_DEFAULT_SONNET_MODEL": "provider-sonnet-model[1m]",
-  "ANTHROPIC_DEFAULT_HAIKU_MODEL": "provider-haiku-model"
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL": "provider-haiku-model",
+  "CLAUDE_CODE_SUBAGENT_MODEL": "provider-subagent-model",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "provider-max-context-tokens"
 }

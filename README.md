@@ -42,9 +42,11 @@ cp ~/.config/claude-switch/profiles/proxy.json.example ~/.config/claude-switch/p
 
 Then edit the copied `.json` file and put in your own values.
 
+For the built-in `alibaba` preset, the default base URL is `https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic` and the Claude-facing model selectors default to `qwen3.8-max` (Opus/Sonnet/model) and `qwen3.6-flash` (Haiku), matching Alibaba's current Claude Code setup guide. The preset also sets `CLAUDE_CODE_SUBAGENT_MODEL` to `qwen3.7-max` and `CLAUDE_CODE_MAX_CONTEXT_TOKENS` to `983616` by default.
+
 For the built-in `deepseek` preset, the default Claude-facing model alias is `deepseek-v4-pro[1m]` so Claude Code requests the 1M-context variant described in DeepSeek's Claude Code integration docs.
 
-For GLM 5.2 on the Z.ai proxy, use the same pattern: set the Claude-facing model aliases to `glm-5.2[1m]` in your local `proxy.json` profile if you want the 1M-context window.
+For GLM 5.3 on the Z.ai proxy, use the same pattern: set the Claude-facing model aliases to `glm-5.3[1m]` in your local `proxy.json` profile if you want the 1M-context window.
 
 For the built-in `minimax` preset, the default base URL is `https://api.minimax.io/anthropic` and all Claude-facing model selectors are set to `MiniMax-M3`, matching MiniMax's current Claude Code setup guide.
 
@@ -57,7 +59,9 @@ Profile JSON format:
   "ANTHROPIC_MODEL": "provider-model-name",
   "ANTHROPIC_DEFAULT_OPUS_MODEL": "provider-opus-model",
   "ANTHROPIC_DEFAULT_SONNET_MODEL": "provider-sonnet-model",
-  "ANTHROPIC_DEFAULT_HAIKU_MODEL": "provider-haiku-model"
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL": "provider-haiku-model",
+  "CLAUDE_CODE_SUBAGENT_MODEL": "provider-subagent-model",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "provider-max-context-tokens"
 }
 ```
 
@@ -90,10 +94,17 @@ If a local profile file does not exist yet, these shortcuts can resolve values f
   - `CLAUDE_SWITCH_PROXY_OPUS_MODEL`
   - `CLAUDE_SWITCH_PROXY_SONNET_MODEL`
   - `CLAUDE_SWITCH_PROXY_HAIKU_MODEL`
+  - `CLAUDE_SWITCH_PROXY_SUBAGENT_MODEL`
+  - `CLAUDE_SWITCH_PROXY_MAX_CONTEXT_TOKENS`
 - `alibaba`
   - `CLAUDE_SWITCH_ALIBABA_BASE_URL`
   - `CLAUDE_SWITCH_ALIBABA_AUTH_TOKEN`
   - `CLAUDE_SWITCH_ALIBABA_MODEL`
+  - `CLAUDE_SWITCH_ALIBABA_OPUS_MODEL`
+  - `CLAUDE_SWITCH_ALIBABA_SONNET_MODEL`
+  - `CLAUDE_SWITCH_ALIBABA_HAIKU_MODEL`
+  - `CLAUDE_SWITCH_ALIBABA_SUBAGENT_MODEL`
+  - `CLAUDE_SWITCH_ALIBABA_MAX_CONTEXT_TOKENS`
   - `ALIBABA_MODEL_STUDIO_API_KEY`
 - `deepseek`
   - `CLAUDE_SWITCH_DEEPSEEK_BASE_URL`
@@ -102,6 +113,8 @@ If a local profile file does not exist yet, these shortcuts can resolve values f
   - `CLAUDE_SWITCH_DEEPSEEK_OPUS_MODEL`
   - `CLAUDE_SWITCH_DEEPSEEK_SONNET_MODEL`
   - `CLAUDE_SWITCH_DEEPSEEK_HAIKU_MODEL`
+  - `CLAUDE_SWITCH_DEEPSEEK_SUBAGENT_MODEL`
+  - `CLAUDE_SWITCH_DEEPSEEK_MAX_CONTEXT_TOKENS`
   - `DEEPSEEK_API_KEY`
 - `minimax`
   - `CLAUDE_SWITCH_MINIMAX_BASE_URL`
@@ -110,6 +123,8 @@ If a local profile file does not exist yet, these shortcuts can resolve values f
   - `CLAUDE_SWITCH_MINIMAX_OPUS_MODEL`
   - `CLAUDE_SWITCH_MINIMAX_SONNET_MODEL`
   - `CLAUDE_SWITCH_MINIMAX_HAIKU_MODEL`
+  - `CLAUDE_SWITCH_MINIMAX_SUBAGENT_MODEL`
+  - `CLAUDE_SWITCH_MINIMAX_MAX_CONTEXT_TOKENS`
   - `MINIMAX_API_KEY`
 
 ## Notes

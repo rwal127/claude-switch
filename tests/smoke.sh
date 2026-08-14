@@ -26,7 +26,9 @@ cat <<'EOF' > "$CLAUDE_SWITCH_PROFILES_DIR/proxy.json"
 {
   "ANTHROPIC_BASE_URL": "https://proxy.example/anthropic",
   "ANTHROPIC_AUTH_TOKEN": "proxy-token",
-  "ANTHROPIC_MODEL": "proxy-model"
+  "ANTHROPIC_MODEL": "proxy-model",
+  "CLAUDE_CODE_SUBAGENT_MODEL": "proxy-subagent-model",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "983616"
 }
 EOF
 
@@ -35,7 +37,9 @@ bash "$SCRIPT_PATH" use proxy >/dev/null
 jq -e '
   .env.ANTHROPIC_BASE_URL == "https://proxy.example/anthropic" and
   .env.ANTHROPIC_AUTH_TOKEN == "proxy-token" and
-  .env.ANTHROPIC_MODEL == "proxy-model"
+  .env.ANTHROPIC_MODEL == "proxy-model" and
+  .env.CLAUDE_CODE_SUBAGENT_MODEL == "proxy-subagent-model" and
+  .env.CLAUDE_CODE_MAX_CONTEXT_TOKENS == "983616"
 ' "$CLAUDE_SWITCH_SETTINGS_FILE" >/dev/null
 
 bash "$SCRIPT_PATH" save backup >/dev/null
@@ -50,7 +54,9 @@ bash "$SCRIPT_PATH" direct >/dev/null
 jq -e '
   (.env.ANTHROPIC_BASE_URL // "") == "" and
   (.env.ANTHROPIC_AUTH_TOKEN // "") == "" and
-  (.env.ANTHROPIC_MODEL // "") == ""
+  (.env.ANTHROPIC_MODEL // "") == "" and
+  (.env.CLAUDE_CODE_SUBAGENT_MODEL // "") == "" and
+  (.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS // "") == ""
 ' "$CLAUDE_SWITCH_SETTINGS_FILE" >/dev/null
 
 rm -f "$CLAUDE_SWITCH_PROFILES_DIR/proxy.json"
@@ -80,6 +86,25 @@ jq -e '
   .ANTHROPIC_AUTH_TOKEN == "legacy-proxy-token"
 ' "$CLAUDE_SWITCH_PROFILES_DIR/proxy.json" >/dev/null
 
+bash "$SCRIPT_PATH" direct >/dev/null
+
+export ALIBABA_MODEL_STUDIO_API_KEY="alibaba-token"
+bash "$SCRIPT_PATH" alibaba >/dev/null
+
+jq -e '
+  .env.ANTHROPIC_BASE_URL == "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic" and
+  .env.ANTHROPIC_AUTH_TOKEN == "alibaba-token" and
+  .env.ANTHROPIC_MODEL == "qwen3.8-max" and
+  .env.ANTHROPIC_DEFAULT_OPUS_MODEL == "qwen3.8-max" and
+  .env.ANTHROPIC_DEFAULT_SONNET_MODEL == "qwen3.8-max" and
+  .env.ANTHROPIC_DEFAULT_HAIKU_MODEL == "qwen3.6-flash" and
+  .env.CLAUDE_CODE_SUBAGENT_MODEL == "qwen3.7-max" and
+  .env.CLAUDE_CODE_MAX_CONTEXT_TOKENS == "983616"
+' "$CLAUDE_SWITCH_SETTINGS_FILE" >/dev/null
+
+[[ -f "$CLAUDE_SWITCH_PROFILES_DIR/alibaba.json" ]]
+
+unset ALIBABA_MODEL_STUDIO_API_KEY
 bash "$SCRIPT_PATH" direct >/dev/null
 
 export DEEPSEEK_API_KEY="deepseek-token"
