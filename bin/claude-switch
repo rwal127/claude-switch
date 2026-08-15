@@ -72,6 +72,8 @@ Profiles:
       ANTHROPIC_DEFAULT_HAIKU_MODEL
       CLAUDE_CODE_SUBAGENT_MODEL
       CLAUDE_CODE_MAX_CONTEXT_TOKENS
+      ANTHROPIC_SMALL_FAST_MODEL
+      API_TIMEOUT_MS
 
 Preset env fallbacks:
   proxy     CLAUDE_SWITCH_PROXY_*
@@ -151,6 +153,8 @@ normalized_profile_filter() {
   ANTHROPIC_DEFAULT_OPUS_MODEL: (.ANTHROPIC_DEFAULT_OPUS_MODEL // ""),
   ANTHROPIC_DEFAULT_SONNET_MODEL: (.ANTHROPIC_DEFAULT_SONNET_MODEL // ""),
   ANTHROPIC_DEFAULT_HAIKU_MODEL: (.ANTHROPIC_DEFAULT_HAIKU_MODEL // ""),
+  ANTHROPIC_SMALL_FAST_MODEL: (.ANTHROPIC_SMALL_FAST_MODEL // ""),
+  API_TIMEOUT_MS: (.API_TIMEOUT_MS // ""),
   CLAUDE_CODE_SUBAGENT_MODEL: (.CLAUDE_CODE_SUBAGENT_MODEL // ""),
   CLAUDE_CODE_MAX_CONTEXT_TOKENS: (.CLAUDE_CODE_MAX_CONTEXT_TOKENS // "")
 }
@@ -178,6 +182,8 @@ profile_json_from_values() {
   local haiku_model="$6"
   local subagent_model="$7"
   local max_context_tokens="$8"
+  local small_fast_model="$9"
+  local api_timeout_ms="${10}"
 
   jq -cn \
     --arg base_url "$base_url" \
@@ -188,6 +194,8 @@ profile_json_from_values() {
     --arg haiku_model "$haiku_model" \
     --arg subagent_model "$subagent_model" \
     --arg max_context_tokens "$max_context_tokens" \
+    --arg small_fast_model "$small_fast_model" \
+    --arg api_timeout_ms "$api_timeout_ms" \
     "{
       ANTHROPIC_BASE_URL: \$base_url,
       ANTHROPIC_AUTH_TOKEN: \$auth_token,
@@ -196,7 +204,9 @@ profile_json_from_values() {
       ANTHROPIC_DEFAULT_SONNET_MODEL: \$sonnet_model,
       ANTHROPIC_DEFAULT_HAIKU_MODEL: \$haiku_model,
       CLAUDE_CODE_SUBAGENT_MODEL: \$subagent_model,
-      CLAUDE_CODE_MAX_CONTEXT_TOKENS: \$max_context_tokens
+      CLAUDE_CODE_MAX_CONTEXT_TOKENS: \$max_context_tokens,
+      ANTHROPIC_SMALL_FAST_MODEL: \$small_fast_model,
+      API_TIMEOUT_MS: \$api_timeout_ms
     } | $(normalized_profile_filter)"
 }
 
@@ -213,7 +223,7 @@ save_profile_json() {
 resolve_preset_profile_json() {
   local profile_name="$1"
   local base_url auth_token model opus_model sonnet_model haiku_model
-  local subagent_model max_context_tokens
+  local subagent_model max_context_tokens small_fast_model api_timeout_ms
 
   case "$profile_name" in
     proxy)
@@ -225,6 +235,8 @@ resolve_preset_profile_json() {
       haiku_model="${CLAUDE_SWITCH_PROXY_HAIKU_MODEL:-}"
       subagent_model="${CLAUDE_SWITCH_PROXY_SUBAGENT_MODEL:-}"
       max_context_tokens="${CLAUDE_SWITCH_PROXY_MAX_CONTEXT_TOKENS:-}"
+      small_fast_model="${CLAUDE_SWITCH_PROXY_SMALL_FAST_MODEL:-}"
+      api_timeout_ms="${CLAUDE_SWITCH_PROXY_API_TIMEOUT_MS:-}"
 
       if [[ -z "$base_url" || -z "$auth_token" ]]; then
         return 1
@@ -239,6 +251,8 @@ resolve_preset_profile_json() {
       haiku_model="${CLAUDE_SWITCH_ALIBABA_HAIKU_MODEL:-$ALIBABA_HAIKU_MODEL_DEFAULT}"
       subagent_model="${CLAUDE_SWITCH_ALIBABA_SUBAGENT_MODEL:-$ALIBABA_SUBAGENT_MODEL_DEFAULT}"
       max_context_tokens="${CLAUDE_SWITCH_ALIBABA_MAX_CONTEXT_TOKENS:-$ALIBABA_MAX_CONTEXT_TOKENS_DEFAULT}"
+      small_fast_model="${CLAUDE_SWITCH_ALIBABA_SMALL_FAST_MODEL:-}"
+      api_timeout_ms="${CLAUDE_SWITCH_ALIBABA_API_TIMEOUT_MS:-}"
 
       if [[ -z "$auth_token" ]]; then
         return 1
@@ -253,6 +267,8 @@ resolve_preset_profile_json() {
       haiku_model="${CLAUDE_SWITCH_DEEPSEEK_HAIKU_MODEL:-$DEEPSEEK_HAIKU_MODEL_DEFAULT}"
       subagent_model="${CLAUDE_SWITCH_DEEPSEEK_SUBAGENT_MODEL:-}"
       max_context_tokens="${CLAUDE_SWITCH_DEEPSEEK_MAX_CONTEXT_TOKENS:-}"
+      small_fast_model="${CLAUDE_SWITCH_DEEPSEEK_SMALL_FAST_MODEL:-}"
+      api_timeout_ms="${CLAUDE_SWITCH_DEEPSEEK_API_TIMEOUT_MS:-}"
 
       if [[ -z "$auth_token" ]]; then
         return 1
@@ -267,6 +283,8 @@ resolve_preset_profile_json() {
       haiku_model="${CLAUDE_SWITCH_MINIMAX_HAIKU_MODEL:-$model}"
       subagent_model="${CLAUDE_SWITCH_MINIMAX_SUBAGENT_MODEL:-}"
       max_context_tokens="${CLAUDE_SWITCH_MINIMAX_MAX_CONTEXT_TOKENS:-}"
+      small_fast_model="${CLAUDE_SWITCH_MINIMAX_SMALL_FAST_MODEL:-}"
+      api_timeout_ms="${CLAUDE_SWITCH_MINIMAX_API_TIMEOUT_MS:-}"
 
       if [[ -z "$auth_token" ]]; then
         return 1
@@ -285,7 +303,9 @@ resolve_preset_profile_json() {
     "${sonnet_model:-}" \
     "${haiku_model:-}" \
     "${subagent_model:-}" \
-    "${max_context_tokens:-}"
+    "${max_context_tokens:-}" \
+    "${small_fast_model:-}" \
+    "${api_timeout_ms:-}"
 }
 
 resolve_profile_json() {
@@ -344,6 +364,8 @@ apply_profile_json() {
           .ANTHROPIC_DEFAULT_OPUS_MODEL,
           .ANTHROPIC_DEFAULT_SONNET_MODEL,
           .ANTHROPIC_DEFAULT_HAIKU_MODEL,
+          .ANTHROPIC_SMALL_FAST_MODEL,
+          .API_TIMEOUT_MS,
           .CLAUDE_CODE_SUBAGENT_MODEL,
           .CLAUDE_CODE_MAX_CONTEXT_TOKENS
         )
@@ -378,6 +400,8 @@ switch_to_direct() {
           .ANTHROPIC_DEFAULT_OPUS_MODEL,
           .ANTHROPIC_DEFAULT_SONNET_MODEL,
           .ANTHROPIC_DEFAULT_HAIKU_MODEL,
+          .ANTHROPIC_SMALL_FAST_MODEL,
+          .API_TIMEOUT_MS,
           .CLAUDE_CODE_SUBAGENT_MODEL,
           .CLAUDE_CODE_MAX_CONTEXT_TOKENS
         )
@@ -445,7 +469,7 @@ current_mode() {
 
 print_status() {
   local mode profile_match base_url token_set model opus_model sonnet_model haiku_model
-  local subagent_model max_context_tokens
+  local subagent_model max_context_tokens small_fast_model api_timeout_ms
 
   mode="$(current_mode)"
   profile_match=""
@@ -461,6 +485,8 @@ print_status() {
   haiku_model="$(jq -r '.env.ANTHROPIC_DEFAULT_HAIKU_MODEL // ""' "$SETTINGS_FILE")"
   subagent_model="$(jq -r '.env.CLAUDE_CODE_SUBAGENT_MODEL // ""' "$SETTINGS_FILE")"
   max_context_tokens="$(jq -r '.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS // ""' "$SETTINGS_FILE")"
+  small_fast_model="$(jq -r '.env.ANTHROPIC_SMALL_FAST_MODEL // ""' "$SETTINGS_FILE")"
+  api_timeout_ms="$(jq -r '.env.API_TIMEOUT_MS // ""' "$SETTINGS_FILE")"
   token_set="$(jq -r 'if ((.env.ANTHROPIC_AUTH_TOKEN // "") | length) > 0 then "yes" else "no" end' "$SETTINGS_FILE")"
 
   echo "Current mode: $mode"
@@ -502,6 +528,16 @@ print_status() {
     echo "CLAUDE_CODE_MAX_CONTEXT_TOKENS: $max_context_tokens"
   else
     echo "CLAUDE_CODE_MAX_CONTEXT_TOKENS: (not set)"
+  fi
+  if [[ -n "$small_fast_model" ]]; then
+    echo "ANTHROPIC_SMALL_FAST_MODEL: $small_fast_model"
+  else
+    echo "ANTHROPIC_SMALL_FAST_MODEL: (not set)"
+  fi
+  if [[ -n "$api_timeout_ms" ]]; then
+    echo "API_TIMEOUT_MS: $api_timeout_ms"
+  else
+    echo "API_TIMEOUT_MS: (not set)"
   fi
 }
 

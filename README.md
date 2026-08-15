@@ -46,7 +46,7 @@ For the built-in `alibaba` preset, the default base URL is `https://token-plan.a
 
 For the built-in `deepseek` preset, the default Claude-facing model alias is `deepseek-v4-pro[1m]` so Claude Code requests the 1M-context variant described in DeepSeek's Claude Code integration docs.
 
-For GLM 5.3 on the Z.ai proxy, use the same pattern: set the Claude-facing model aliases to `glm-5.3[1m]` in your local `proxy.json` profile if you want the 1M-context window.
+For GLM 5.3 on the Z.ai proxy, set the Claude-facing model aliases to plain `glm-5.3` — no `[1m]` suffix is needed anymore since GLM-5.3 is natively 1M-context. Use `glm-5-turbo` for the Haiku and small-fast model slots, and `API_TIMEOUT_MS=3000000` as Z.ai recommends. Old `glm-5.2[1m]` IDs still work (they are auto-routed as 5.3), but updating keeps logs and quota reads accurate.
 
 For the built-in `minimax` preset, the default base URL is `https://api.minimax.io/anthropic` and all Claude-facing model selectors are set to `MiniMax-M3`, matching MiniMax's current Claude Code setup guide.
 
@@ -61,7 +61,9 @@ Profile JSON format:
   "ANTHROPIC_DEFAULT_SONNET_MODEL": "provider-sonnet-model",
   "ANTHROPIC_DEFAULT_HAIKU_MODEL": "provider-haiku-model",
   "CLAUDE_CODE_SUBAGENT_MODEL": "provider-subagent-model",
-  "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "provider-max-context-tokens"
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "provider-max-context-tokens",
+  "ANTHROPIC_SMALL_FAST_MODEL": "provider-small-fast-model",
+  "API_TIMEOUT_MS": "provider-api-timeout-ms"
 }
 ```
 
@@ -96,6 +98,8 @@ If a local profile file does not exist yet, these shortcuts can resolve values f
   - `CLAUDE_SWITCH_PROXY_HAIKU_MODEL`
   - `CLAUDE_SWITCH_PROXY_SUBAGENT_MODEL`
   - `CLAUDE_SWITCH_PROXY_MAX_CONTEXT_TOKENS`
+  - `CLAUDE_SWITCH_PROXY_SMALL_FAST_MODEL`
+  - `CLAUDE_SWITCH_PROXY_API_TIMEOUT_MS`
 - `alibaba`
   - `CLAUDE_SWITCH_ALIBABA_BASE_URL`
   - `CLAUDE_SWITCH_ALIBABA_AUTH_TOKEN`
@@ -105,6 +109,8 @@ If a local profile file does not exist yet, these shortcuts can resolve values f
   - `CLAUDE_SWITCH_ALIBABA_HAIKU_MODEL`
   - `CLAUDE_SWITCH_ALIBABA_SUBAGENT_MODEL`
   - `CLAUDE_SWITCH_ALIBABA_MAX_CONTEXT_TOKENS`
+  - `CLAUDE_SWITCH_ALIBABA_SMALL_FAST_MODEL`
+  - `CLAUDE_SWITCH_ALIBABA_API_TIMEOUT_MS`
   - `ALIBABA_MODEL_STUDIO_API_KEY`
 - `deepseek`
   - `CLAUDE_SWITCH_DEEPSEEK_BASE_URL`
@@ -115,6 +121,8 @@ If a local profile file does not exist yet, these shortcuts can resolve values f
   - `CLAUDE_SWITCH_DEEPSEEK_HAIKU_MODEL`
   - `CLAUDE_SWITCH_DEEPSEEK_SUBAGENT_MODEL`
   - `CLAUDE_SWITCH_DEEPSEEK_MAX_CONTEXT_TOKENS`
+  - `CLAUDE_SWITCH_DEEPSEEK_SMALL_FAST_MODEL`
+  - `CLAUDE_SWITCH_DEEPSEEK_API_TIMEOUT_MS`
   - `DEEPSEEK_API_KEY`
 - `minimax`
   - `CLAUDE_SWITCH_MINIMAX_BASE_URL`
@@ -125,6 +133,8 @@ If a local profile file does not exist yet, these shortcuts can resolve values f
   - `CLAUDE_SWITCH_MINIMAX_HAIKU_MODEL`
   - `CLAUDE_SWITCH_MINIMAX_SUBAGENT_MODEL`
   - `CLAUDE_SWITCH_MINIMAX_MAX_CONTEXT_TOKENS`
+  - `CLAUDE_SWITCH_MINIMAX_SMALL_FAST_MODEL`
+  - `CLAUDE_SWITCH_MINIMAX_API_TIMEOUT_MS`
   - `MINIMAX_API_KEY`
 
 ## Notes
@@ -132,7 +142,7 @@ If a local profile file does not exist yet, these shortcuts can resolve values f
 - Dependencies: `bash`, `jq`
 - Default Claude settings file: `~/.claude/settings.json`
 - Default Claude onboarding file: `~/.claude.json`
-- MiniMax's Claude Code guide also recommends `API_TIMEOUT_MS=3000000` and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`
+- Z.ai and MiniMax Claude Code guides also recommend `API_TIMEOUT_MS=3000000` (a profile key claude-switch manages); MiniMax additionally recommends `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`
 - Override locations with:
   - `CLAUDE_SWITCH_HOME`
   - `CLAUDE_SWITCH_PROFILES_DIR`

@@ -28,7 +28,9 @@ cat <<'EOF' > "$CLAUDE_SWITCH_PROFILES_DIR/proxy.json"
   "ANTHROPIC_AUTH_TOKEN": "proxy-token",
   "ANTHROPIC_MODEL": "proxy-model",
   "CLAUDE_CODE_SUBAGENT_MODEL": "proxy-subagent-model",
-  "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "983616"
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "983616",
+  "ANTHROPIC_SMALL_FAST_MODEL": "proxy-small-fast-model",
+  "API_TIMEOUT_MS": "3000000"
 }
 EOF
 
@@ -39,7 +41,9 @@ jq -e '
   .env.ANTHROPIC_AUTH_TOKEN == "proxy-token" and
   .env.ANTHROPIC_MODEL == "proxy-model" and
   .env.CLAUDE_CODE_SUBAGENT_MODEL == "proxy-subagent-model" and
-  .env.CLAUDE_CODE_MAX_CONTEXT_TOKENS == "983616"
+  .env.CLAUDE_CODE_MAX_CONTEXT_TOKENS == "983616" and
+  .env.ANTHROPIC_SMALL_FAST_MODEL == "proxy-small-fast-model" and
+  .env.API_TIMEOUT_MS == "3000000"
 ' "$CLAUDE_SWITCH_SETTINGS_FILE" >/dev/null
 
 bash "$SCRIPT_PATH" save backup >/dev/null
@@ -56,7 +60,9 @@ jq -e '
   (.env.ANTHROPIC_AUTH_TOKEN // "") == "" and
   (.env.ANTHROPIC_MODEL // "") == "" and
   (.env.CLAUDE_CODE_SUBAGENT_MODEL // "") == "" and
-  (.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS // "") == ""
+  (.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS // "") == "" and
+  (.env.ANTHROPIC_SMALL_FAST_MODEL // "") == "" and
+  (.env.API_TIMEOUT_MS // "") == ""
 ' "$CLAUDE_SWITCH_SETTINGS_FILE" >/dev/null
 
 rm -f "$CLAUDE_SWITCH_PROFILES_DIR/proxy.json"
